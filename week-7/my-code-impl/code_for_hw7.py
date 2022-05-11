@@ -24,7 +24,7 @@ class Linear(Module):
 
     def forward(self, A):
         self.A = A   # (m x b)  Hint: make sure you understand what b stands for
-        return np.transpose(A.T @ self.W)  # Your code (n x b)
+        return np.transpose(A.T @ self.W) + self.W0  # Your code (n x b)
 
     def backward(self, dLdZ):  # dLdZ is (n x b), uses stored self.A
         self.dLdW  = self.A @ np.transpose(dLdZ)  # Your code
@@ -65,7 +65,7 @@ class ReLU(Module):  # Layer activation
 class SoftMax(Module):  # Output activation
     def forward(self, Z):
         exp_Z = np.exp(Z)
-        return exp_Z / np.sum(exp_Z) # Your code: (n, b)
+        return exp_Z / np.sum(exp_Z, axis=0) # Your code: (n, b)
 
     def backward(self, dLdZ):  # Assume that dLdZ is passed in
         return dLdZ
@@ -86,12 +86,12 @@ class SoftMax(Module):  # Output activation
 # NLL loss
 class NLL(Module):  # Loss
     def forward(self, Ypred, Y):
-        self.Ypred = Ypred
-        self.Y = Y
-        return None  # Your code: return loss (scalar)
+        self.Ypred = Ypred  # (b, 1) [.2, .4, .7, .9, .6, .3]
+        self.Y = Y  # (b, 1) [0, 0, 1, 1, 0, 1]
+        return -np.sum(Y * np.log(Ypred))  # Your code: return loss (scalar)
 
     def backward(self):  # Use stored self.Ypred, self.Y
-        return None  # Your code (?, b)
+        return self.Ypred - self.Y  # Your code (1, b)
 
 
 # Neural Network implementation
@@ -102,8 +102,17 @@ class Sequential:
 
     def sgd(self, X, Y, iters=100, lrate=0.005):  # Train
         D, N = X.shape
+        cur_loss = 0
         for it in range(iters):
-            pass  # Your code
+            i = np.random.randint(N)
+            X_i = X[:, i:i+1]
+            Y_i = Y[:, i:i+1]
+            Ypred = self.forward(X)
+            cur_loss += self.loss.forward(Ypred, Y_i)
+            dLdZ_L = self.loss.backward()
+            self.backward(dLdZ_L)
+            self.sgd_step(lrate)
+            self.print_accuracy(it, X, Y, cur_loss)
 
     def forward(self, Xt):  # Compute Ypred
         for m in self.modules: Xt = m.forward(Xt)
@@ -260,7 +269,7 @@ X, Y = super_simple_separable()  # data
 linear_1 = Linear(2, 3)  # module
 learning_rate = 0.005  #hyperparameter
 
-'''
+
 # test case:
 # forward
 z_1 = linear_1.forward(X)
@@ -268,7 +277,7 @@ exp_z_1 =  np.array([[10.41750064, 6.91122168, 20.73366505, 22.8912344],
                      [7.16872235, 3.48998746, 10.46996239, 9.9982611],
                      [-2.07105455, 0.69413716, 2.08241149, 4.84966811]])
 unit_test("linear_forward", exp_z_1, z_1)
-'''
+
 
 '''
 # backward
@@ -297,10 +306,10 @@ unit_test("linear_sgd_step_W0", exp_linear_1_W0, linear_1.W0)
 ######################################################################
 
 # TEST 1: sgd_test for Tanh activation and SoftMax output
-'''
+
 np.random.seed(0)
 sgd_test(Sequential([Linear(2,3), Tanh(), Linear(3,2), SoftMax()], NLL()), test_1_values)
-'''
+
 
 # TEST 2: sgd_test for ReLU activation and SoftMax output
 '''
@@ -347,9 +356,9 @@ def nn_pred_test():
     return nn.modules[-1].class_fun(Ypred).tolist(), [nn.loss.forward(Ypred, Y)]
 
 
-'''
-print(nn_tanh_test())
-'''
+
+# print(nn_tanh_test())
+
 # Expected output
 '''
     [[[1.2473733761848262, 0.2829538808226157, 0.6924193292712828],
