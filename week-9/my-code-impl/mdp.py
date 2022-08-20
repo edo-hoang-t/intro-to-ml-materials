@@ -53,16 +53,34 @@ class MDP:
 # dictionary mapping (s, a) pairs into Q values This must be
 # initialized before interactive_fn is called the first time.
 
-def value_iteration(mdp, q, eps = 0.01, interactive_fn = None,
-                    max_iters = 10000):
+def value_iteration(mdp, q, eps = 0.01, max_iters = 1000):
     # Your code here
-    pass
+    def v(s):
+        return value(q,s)
+    for it in range(max_iters):
+        new_q = q.copy()
+        delta = 0
+        for s in mdp.states:
+            for a in mdp.actions:
+                new_q.set(s, a, mdp.reward_fn(s, a) + mdp.discount_factor * \
+                          mdp.transition_model(s, a).expectation(v))
+                delta = max(delta, abs(new_q.get(s, a) - q.get(s, a)))
+        if delta < eps:
+            return new_q
+        q = new_q
+    return q
 
 # Compute the q value of action a in state s with horizon h, using
 # expectimax
 def q_em(mdp, s, a, h):
     # Your code here
-    pass
+    if h == 0:
+        return 0
+    next_q_sum = 0.0
+    for (next_s, next_prob) in mdp.transition_model(s, a).d.items():
+        next_q_sum += next_prob * max([q_em(mdp, next_s, next_a, h - 1) for next_a in mdp.actions])
+    return mdp.reward_fn(s, a) + mdp.discount_factor * next_q_sum
+
 
 # Given a state, return the value of that state, with respect to the
 # current definition of the q function
@@ -77,7 +95,11 @@ def value(q, s):
     10
     """
     # Your code here
-    pass
+    max_q = -1
+    for a in q.actions:
+        if q.get(s, a) > max_q:
+            max_q = q.get(s, a)
+    return max_q
 
 # Given a state, return the action that is greedy with reespect to the
 # current definition of the q function
@@ -94,7 +116,13 @@ def greedy(q, s):
     'b'
     """
     # Your code here
-    pass
+    max_q = -1
+    max_a = ''
+    for a in q.actions:
+        if q.get(s, a) > max_q:
+            max_q = q.get(s, a)
+            max_a = a
+    return max_a
 
 def epsilon_greedy(q, s, eps = 0.5):
     """ Return an action.
@@ -111,10 +139,10 @@ def epsilon_greedy(q, s, eps = 0.5):
     """
     if random.random() < eps:  # True with prob eps, random action
         # Your code here
-        pass
+        return uniform_dist(q.actions).draw()
     else:
         # Your code here
-        pass
+        return greedy(q, s)
 
 class TabularQ:
     def __init__(self, states, actions):
